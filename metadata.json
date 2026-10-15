@@ -1,0 +1,6 @@
+{
+  "name": "NOVA AI",
+  "description": "Personal AI Assistant for Android with Gemini reasoning, native device controls, voice interface, and floating overlay.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
