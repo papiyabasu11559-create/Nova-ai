@@ -224,12 +224,16 @@ fun VibeCodeScreen(
                             settings.allowFileAccess = false
                             settings.allowContentAccess = false
                             webViewClient = WebViewClient()
+                            tag = currentProject.htmlCode
                             loadDataWithBaseURL(null, currentProject.htmlCode, "text/html", "UTF-8", null)
                             webViewRef = this
                         }
                     },
                     update = { view ->
-                        view.loadDataWithBaseURL(null, currentProject.htmlCode, "text/html", "UTF-8", null)
+                        if (view.tag != currentProject.htmlCode) {
+                            view.tag = currentProject.htmlCode
+                            view.loadDataWithBaseURL(null, currentProject.htmlCode, "text/html", "UTF-8", null)
+                        }
                     },
                     modifier = Modifier.fillMaxSize()
                 )

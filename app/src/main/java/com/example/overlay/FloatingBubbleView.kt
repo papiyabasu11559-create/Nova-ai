@@ -130,8 +130,11 @@ class FloatingBubbleView(
     }
 
     init {
-        // Enable hardware layer for no-overdraw smooth rendering
-        setLayerType(LAYER_TYPE_HARDWARE, null)
+        try {
+            setLayerType(LAYER_TYPE_NONE, null)
+        } catch (e: Throwable) {
+            // Ignored
+        }
         updateDimensions()
     }
 

@@ -188,8 +188,16 @@ class FloatingAssistantService : Service() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
         // Background blur behind the bubble on Android 12+ (FLAG_BLUR_BEHIND / blurBehindRadius)
+        var blurSupported = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            flags = flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+            try {
+                if (windowManager?.isCrossWindowBlurEnabled == true) {
+                    flags = flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+                    blurSupported = true
+                }
+            } catch (e: Throwable) {
+                // Fallback to plain translucency if blur not supported or on emulators
+            }
         }
 
         params = WindowManager.LayoutParams(
@@ -203,8 +211,12 @@ class FloatingAssistantService : Service() {
             x = screenWidth - normalWindowSizePx - (12 * density).toInt()
             y = (screenHeight * 0.35f).toInt()
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                blurBehindRadius = (16 * density).toInt()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurSupported) {
+                try {
+                    blurBehindRadius = (16 * density).toInt()
+                } catch (e: Throwable) {
+                    // Ignored
+                }
             }
         }
 
