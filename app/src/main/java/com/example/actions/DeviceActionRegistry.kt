@@ -619,4 +619,89 @@ class DeviceActionRegistry(private val context: Context) {
             ActionResult(false, "share_text", "Share Failed", "Could not launch Android share sheet.")
         }
     }
+
+    /**
+     * Instantly matches and executes local device commands (flashlight, battery,
+     * volume, timers, alarms, settings) without any cloud network latency.
+     */
+    fun matchAndExecuteLocalCommand(rawInput: String): ActionResult? {
+        val normalized = rawInput.trim().lowercase()
+
+        // Flashlight
+        if (normalized in listOf("turn on flashlight", "flashlight on", "torch on", "turn on torch", "enable flashlight", "turn on the flashlight")) {
+            return toggleFlashlight(true)
+        }
+        if (normalized in listOf("turn off flashlight", "flashlight off", "torch off", "turn off torch", "disable flashlight", "turn off the flashlight")) {
+            return toggleFlashlight(false)
+        }
+
+        // Battery
+        if (normalized in listOf("battery", "battery percentage", "battery level", "battery status", "check battery", "how much battery", "what is my battery level")) {
+            return getBatteryInfo()
+        }
+
+        // Volume
+        if (normalized in listOf("mute", "mute phone", "silence phone", "mute volume")) {
+            return adjustVolume("mute", "music")
+        }
+        if (normalized in listOf("volume up", "increase volume", "turn up volume", "louder")) {
+            return adjustVolume("raise", "music")
+        }
+        if (normalized in listOf("volume down", "decrease volume", "turn down volume", "quieter", "lower volume")) {
+            return adjustVolume("lower", "music")
+        }
+        if (normalized in listOf("max volume", "maximum volume")) {
+            return adjustVolume("max", "music")
+        }
+
+        // Settings
+        if (normalized in listOf("open wifi", "wifi settings", "open wi-fi", "open wifi settings")) {
+            return openSettingsPage("wifi")
+        }
+        if (normalized in listOf("open bluetooth", "bluetooth settings", "open bluetooth settings")) {
+            return openSettingsPage("bluetooth")
+        }
+        if (normalized in listOf("open settings", "device settings")) {
+            return openSettingsPage("main")
+        }
+        if (normalized in listOf("open sound settings", "sound settings", "volume settings")) {
+            return openSettingsPage("sound")
+        }
+        if (normalized in listOf("open display settings", "display settings", "screen settings")) {
+            return openSettingsPage("display")
+        }
+        if (normalized in listOf("open battery settings", "battery settings")) {
+            return openSettingsPage("battery")
+        }
+
+        // Memory & Storage
+        if (normalized in listOf("check ram", "check memory", "memory info", "ram usage")) {
+            return getDeviceSpecs()
+        }
+        if (normalized in listOf("check storage", "storage info", "storage status", "free space")) {
+            return getDeviceSpecs()
+        }
+
+        // Timer matching: e.g. "set timer for 5 minutes", "timer 30 seconds"
+        val timerMatch = Regex("""(?:set\s+)?timer\s+(?:for\s+)?(\d+)\s*(minute|minutes|second|seconds|min|sec)""").find(normalized)
+        if (timerMatch != null) {
+            val amount = timerMatch.groupValues[1].toIntOrNull() ?: 60
+            val unit = timerMatch.groupValues[2]
+            val durationSec = if (unit.startsWith("min")) amount * 60 else amount
+            return setTimer(durationSec, "NOVA Quick Timer")
+        }
+
+        // Alarm matching: e.g. "set alarm for 7:30", "set alarm for 8 am"
+        val alarmMatch = Regex("""(?:set\s+)?alarm\s+(?:for\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?""").find(normalized)
+        if (alarmMatch != null) {
+            var hour = alarmMatch.groupValues[1].toIntOrNull() ?: 8
+            val minute = alarmMatch.groupValues[2].toIntOrNull() ?: 0
+            val amPm = alarmMatch.groupValues[3]
+            if (amPm == "pm" && hour < 12) hour += 12
+            if (amPm == "am" && hour == 12) hour = 0
+            return setAlarm(hour, minute, "NOVA AI Alarm")
+        }
+
+        return null
+    }
 }

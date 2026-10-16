@@ -1,12 +1,16 @@
 package com.example.ui.screens
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.view.HapticFeedbackConstants
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -37,25 +41,31 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -69,18 +79,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ChatMessage
 import com.example.ui.NovaAssistantViewModel
-import com.example.ui.NovaTab
 import com.example.ui.components.LiveWaveform
 import com.example.ui.components.PulsingAIOld
 import com.example.ui.components.StatusBadge
@@ -95,6 +108,7 @@ import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.VividViolet
+import com.example.util.FileTextExtractor
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -103,21 +117,32 @@ fun ChatScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val isStreaming by viewModel.isStreaming.collectAsStateWithLifecycle()
     val streamingText by viewModel.currentStreamingText.collectAsStateWithLifecycle()
     val isListening by viewModel.isListening.collectAsStateWithLifecycle()
     val rmsDb by viewModel.rmsDb.collectAsStateWithLifecycle()
     val isSpeaking by viewModel.isSpeaking.collectAsStateWithLifecycle()
-    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val recognizedText by viewModel.recognizedSpeechText.collectAsStateWithLifecycle()
     val isHandsFree by viewModel.isHandsFreeMode.collectAsStateWithLifecycle()
+    val connectionStatus by viewModel.connectionStatus.collectAsStateWithLifecycle()
+    val attachedFile by viewModel.attachedFile.collectAsStateWithLifecycle()
+    val activeThemeProposal by viewModel.activeThemeProposal.collectAsStateWithLifecycle()
     val isImeVisible = WindowInsets.isImeVisible
 
     var inputText by remember { mutableStateOf("") }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var showAttachMenu by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
+
+    // Stream partial speech recognition results live into the input field
+    LaunchedEffect(recognizedText) {
+        if (isListening && recognizedText.isNotBlank()) {
+            inputText = recognizedText
+        }
+    }
 
     // Auto-scroll on new message, stream chunk, or when keyboard opens
     LaunchedEffect(messages.size, streamingText, isImeVisible) {
@@ -129,12 +154,11 @@ fun ChatScreen(
         }
     }
 
-    // Photo picker launcher (zero-permission standard Android photo picker)
+    // Photo picker launcher (Gallery)
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            selectedImageUri = uri
             try {
                 selectedBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     val source = ImageDecoder.createSource(context.contentResolver, uri)
@@ -146,6 +170,33 @@ fun ChatScreen(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    // Camera capture launcher
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            selectedBitmap = bitmap
+        }
+    }
+
+    // Document file picker launcher
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val res = FileTextExtractor.processUri(context, uri)
+            res.fold(
+                onSuccess = { file ->
+                    viewModel.attachFile(file)
+                    Toast.makeText(context, "Attached: ${file.name}", Toast.LENGTH_SHORT).show()
+                },
+                onFailure = { err ->
+                    Toast.makeText(context, "File Error: ${err.localizedMessage}", Toast.LENGTH_LONG).show()
+                }
+            )
         }
     }
 
@@ -166,186 +217,139 @@ fun ChatScreen(
         }
     }
 
-    val activeModelDisplayName = settings.autoDetectedModelName.ifBlank {
-        settings.selectedModel.displayName
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(ObsidianBackground)
+            .background(Color.Transparent)
     ) {
-        // Top Header
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = ObsidianSurface,
-            tonalElevation = 4.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    PulsingAIOld(isListening = isListening, isStreaming = isStreaming)
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "NOVA AI",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(ElectricCyan.copy(alpha = 0.15f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = activeModelDisplayName,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = ElectricCyan
-                                )
-                            }
-                        }
-                        Text(
-                            text = if (isListening) "Listening to your voice..." else if (isStreaming) "AI Reasoning & Executing..." else "AI Ready • Awaiting human input",
-                            fontSize = 11.sp,
-                            color = if (isListening) ElectricCyan else TextMuted
-                        )
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isHandsFree) SuccessTeal.copy(alpha = 0.2f) else ObsidianSurfaceVariant)
-                            .border(1.dp, if (isHandsFree) SuccessTeal else ObsidianBorder, RoundedCornerShape(16.dp))
-                            .clickable {
-                                viewModel.toggleHandsFreeMode(!isHandsFree, onPermissionRequired = {
-                                    micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                })
-                            }
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                            .testTag("hands_free_mode_toggle")
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(text = if (isHandsFree) "🟢" else "🎙️", fontSize = 11.sp)
-                            Text(
-                                text = if (isHandsFree) "Hands-Free" else "Hands-Free",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isHandsFree) SuccessTeal else TextSecondary
-                            )
-                        }
-                    }
-
-                    if (isSpeaking) {
-                        IconButton(
-                            onClick = { viewModel.stopSpeaking() },
-                            modifier = Modifier.testTag("stop_speaking_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                contentDescription = "Speaking - Tap to stop",
-                                tint = VividViolet
-                            )
-                        }
-                    }
-
-                    IconButton(
-                        onClick = { viewModel.clearHistory() },
-                        modifier = Modifier.testTag("clear_history_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteSweep,
-                            contentDescription = "Clear History",
-                            tint = TextSecondary
-                        )
-                    }
-                }
-            }
-        }
-
-        // Optional API Key Setup Banner if key is missing
-        if (settings.customApiKey.isBlank() && !settings.isKeyValidated) {
+        // Status indicator banner if high server load (503 / 429)
+        if (!connectionStatus.isNullOrBlank()) {
             Surface(
+                color = VividViolet.copy(alpha = 0.2f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, VividViolet),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(10.dp),
-                color = ObsidianSurfaceElevated,
-                border = androidx.compose.foundation.BorderStroke(1.dp, VividViolet.copy(alpha = 0.5f))
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Key,
-                            contentDescription = null,
-                            tint = VividViolet,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "Configure Google API Key",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = "Auto-detects compatible Gemini model for your account",
-                                fontSize = 11.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
+                    CircularProgressIndicator(modifier = Modifier.size(14.dp), color = VividViolet, strokeWidth = 2.dp)
+                    Text(text = connectionStatus!!, fontSize = 11.sp, color = Color.White)
+                }
+            }
+        }
 
-                    Button(
-                        onClick = { viewModel.selectTab(NovaTab.SETTINGS) },
-                        colors = ButtonDefaults.buttonColors(containerColor = VividViolet),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text("Setup", fontSize = 11.sp, color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
+        // Active Theme Proposal Confirmation Card
+        if (activeThemeProposal != null) {
+            val proposal = activeThemeProposal!!
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceElevated),
+                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(android.graphics.Color.parseColor(proposal.themeConfig.primaryColorHex))),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(imageVector = Icons.Default.Palette, contentDescription = null, tint = Color(android.graphics.Color.parseColor(proposal.themeConfig.primaryColorHex)))
+                        Text(text = "Theme Proposal: ${proposal.title}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    }
+                    Text(text = proposal.description, fontSize = 12.sp, color = TextSecondary)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { viewModel.applyThemeProposal(proposal) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(android.graphics.Color.parseColor(proposal.themeConfig.primaryColorHex))),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = "Apply Theme", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.dismissThemeProposal() },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(text = "Cancel", fontSize = 12.sp, color = TextMuted)
+                        }
                     }
                 }
             }
         }
 
-        // Chat Messages Thread
+        // Messages Feed
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            if (messages.isEmpty() && streamingText.isEmpty()) {
+            item { Spacer(modifier = Modifier.height(6.dp)) }
+
+            if (messages.isEmpty() && !isStreaming) {
                 item {
-                    EmptyChatGreeting()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(ElectricCyan.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "⚡", fontSize = 32.sp)
+                        }
+                        Text(
+                            text = "NOVA AI Online & Listening",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Ultra-low latency device execution & intelligence\nTap the microphone or type any command below",
+                            fontSize = 12.sp,
+                            color = TextSecondary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = 16.sp
+                        )
+
+                        // Quick prompt suggestion chips
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            listOf("Turn on flashlight", "Check battery", "Summarize document", "Make a timer").forEach { chip ->
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = ObsidianSurfaceVariant,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianBorder),
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp)
+                                        .clickable { viewModel.sendMessage(chip) }
+                                ) {
+                                    Text(
+                                        text = chip,
+                                        fontSize = 11.sp,
+                                        color = ElectricCyan,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -353,113 +357,116 @@ fun ChatScreen(
                 MessageBubble(message = message)
             }
 
-            if (streamingText.isNotEmpty()) {
+            // Live streaming bubble
+            if (isStreaming) {
                 item {
-                    StreamingMessageBubble(text = streamingText)
+                    StreamingMessageBubble(streamingText = streamingText)
                 }
             }
+
+            item { Spacer(modifier = Modifier.height(10.dp)) }
         }
 
-        // Voice Waveform Banner (Active for Push-to-Talk or Continuous Hands-Free)
-        AnimatedVisibility(
-            visible = isListening || isHandsFree,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
+        // Attached File Chip Preview
+        if (attachedFile != null) {
+            val file = attachedFile!!
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = ObsidianSurfaceElevated,
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (isHandsFree) SuccessTeal.copy(alpha = 0.7f) else ElectricCyan.copy(alpha = 0.5f)
-                )
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                color = ObsidianSurfaceVariant,
+                shape = RoundedCornerShape(10.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.6f))
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = if (isHandsFree) {
-                                if (isListening) "Listening..." else "🎙️ Hands-Free • Speak anytime"
-                            } else {
-                                "Listening to you..."
-                            },
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isHandsFree) SuccessTeal else ElectricCyan
-                        )
-                        LiveWaveform(rmsDb = rmsDb)
+                        Icon(imageVector = Icons.Default.Description, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(20.dp))
+                        Column {
+                            Text(text = file.name, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            Text(text = "${file.readableSize} • Document context loaded", fontSize = 10.sp, color = TextSecondary)
+                        }
                     }
-
                     IconButton(
-                        onClick = {
-                            if (isHandsFree) {
-                                viewModel.toggleHandsFreeMode(false, {})
-                            } else {
-                                viewModel.stopVoiceInput()
-                            }
-                        },
-                        modifier = Modifier.size(32.dp)
+                        onClick = { viewModel.removeAttachedFile() },
+                        modifier = Modifier.size(24.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Stop Listening",
-                            tint = TextSecondary
-                        )
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Remove file", tint = Color(0xFFEF4444), modifier = Modifier.size(16.dp))
                     }
                 }
             }
         }
 
-        // Image Attachment Preview
+        // Image Attachment Thumbnail Preview
         if (selectedBitmap != null) {
-            Row(
+            Surface(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(ObsidianSurfaceVariant)
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                color = ObsidianSurfaceVariant,
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Image(
-                    bitmap = selectedBitmap!!.asImageBitmap(),
-                    contentDescription = "Selected image preview",
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                )
-                Text(
-                    text = "Image attached for AI analysis",
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(
-                    onClick = {
-                        selectedBitmap = null
-                        selectedImageUri = null
-                    },
-                    modifier = Modifier.size(24.dp)
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Remove attached image",
-                        tint = TextMuted
+                    Image(
+                        bitmap = selectedBitmap!!.asImageBitmap(),
+                        contentDescription = "Selected image preview",
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(6.dp))
                     )
+                    Text(
+                        text = "Image attached for multimodal analysis",
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { selectedBitmap = null },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Remove image", tint = TextMuted)
+                    }
                 }
             }
         }
 
-        // Bottom Input Row: Human Input Interface
+        // Real-time audio waveform when mic is listening
+        if (isListening) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                color = VividViolet.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, VividViolet.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LiveWaveform(rmsDb = rmsDb)
+                        Text(text = "Listening live...", fontSize = 12.sp, color = VividViolet, fontWeight = FontWeight.SemiBold)
+                    }
+                    IconButton(onClick = { viewModel.stopVoiceInput() }, modifier = Modifier.size(28.dp)) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Stop Listening", tint = VividViolet)
+                    }
+                }
+            }
+        }
+
+        // Bottom Input Row
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = ObsidianSurface,
@@ -468,26 +475,62 @@ fun ChatScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Photo Attachment Button
-                IconButton(
-                    onClick = {
-                        photoPickerLauncher.launch(
-                            androidx.activity.result.PickVisualMediaRequest(
-                                ActivityResultContracts.PickVisualMedia.ImageOnly
-                            )
+                // Attach Button (+)
+                Box {
+                    IconButton(
+                        onClick = { showAttachMenu = true },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(ObsidianSurfaceVariant)
+                            .border(1.dp, ObsidianBorder, CircleShape)
+                    ) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = "Attach file, photo or document", tint = ElectricCyan)
+                    }
+
+                    DropdownMenu(
+                        expanded = showAttachMenu,
+                        onDismissRequest = { showAttachMenu = false },
+                        modifier = Modifier.background(ObsidianSurface)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("📄 Document (PDF, Word, Code, CSV)", fontSize = 12.sp, color = TextPrimary) },
+                            onClick = {
+                                showAttachMenu = false
+                                filePickerLauncher.launch(
+                                    arrayOf(
+                                        "application/pdf",
+                                        "text/*",
+                                        "application/json",
+                                        "text/csv",
+                                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                    )
+                                )
+                            }
                         )
-                    },
-                    modifier = Modifier.testTag("attach_image_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AddPhotoAlternate,
-                        contentDescription = "Attach image for AI analysis",
-                        tint = if (selectedBitmap != null) ElectricCyan else TextSecondary
-                    )
+                        DropdownMenuItem(
+                            text = { Text("📷 Camera Capture", fontSize = 12.sp, color = TextPrimary) },
+                            onClick = {
+                                showAttachMenu = false
+                                cameraLauncher.launch(null)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("🖼️ Photo Gallery", fontSize = 12.sp, color = TextPrimary) },
+                            onClick = {
+                                showAttachMenu = false
+                                photoPickerLauncher.launch(
+                                    androidx.activity.result.PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                    )
+                                )
+                            }
+                        )
+                    }
                 }
 
                 // Text Input
@@ -496,8 +539,8 @@ fun ChatScreen(
                     onValueChange = { inputText = it },
                     placeholder = {
                         Text(
-                            text = "Speak or type any command...",
-                            fontSize = 14.sp,
+                            text = if (isListening) "Listening to voice..." else "Speak or type any command...",
+                            fontSize = 13.sp,
                             color = TextMuted
                         )
                     },
@@ -520,21 +563,21 @@ fun ChatScreen(
                     ),
                     keyboardActions = KeyboardActions(
                         onSend = {
-                            if (inputText.isNotBlank() || selectedBitmap != null) {
+                            if (inputText.isNotBlank() || selectedBitmap != null || attachedFile != null) {
                                 val textToSend = inputText
                                 val bitmapToSend = selectedBitmap
                                 inputText = ""
                                 selectedBitmap = null
-                                selectedImageUri = null
                                 viewModel.sendMessage(textToSend, bitmapToSend)
                             }
                         }
                     )
                 )
 
-                // Push-to-Talk Voice Button
+                // Push-to-Talk Microphone Button
                 IconButton(
                     onClick = {
+                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                         if (isListening) {
                             viewModel.stopVoiceInput()
                         } else {
@@ -546,7 +589,7 @@ fun ChatScreen(
                         }
                     },
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(42.dp)
                         .clip(CircleShape)
                         .background(if (isListening) VividViolet else ObsidianSurfaceVariant)
                         .border(1.dp, if (isListening) VividViolet else ObsidianBorder, CircleShape)
@@ -555,33 +598,34 @@ fun ChatScreen(
                     Icon(
                         imageVector = if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
                         contentDescription = "Push to Talk Voice Assistant",
-                        tint = if (isListening) TextPrimary else ElectricCyan
+                        tint = if (isListening) TextPrimary else ElectricCyan,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
                 // Send Button
                 IconButton(
                     onClick = {
-                        if (inputText.isNotBlank() || selectedBitmap != null) {
+                        if (inputText.isNotBlank() || selectedBitmap != null || attachedFile != null) {
                             val textToSend = inputText
                             val bitmapToSend = selectedBitmap
                             inputText = ""
                             selectedBitmap = null
-                            selectedImageUri = null
                             viewModel.sendMessage(textToSend, bitmapToSend)
                         }
                     },
-                    enabled = inputText.isNotBlank() || selectedBitmap != null,
+                    enabled = inputText.isNotBlank() || selectedBitmap != null || attachedFile != null,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(42.dp)
                         .clip(CircleShape)
-                        .background(if (inputText.isNotBlank() || selectedBitmap != null) ElectricCyan else ObsidianSurfaceVariant)
-                        .testTag("send_message_button")
+                        .background(if (inputText.isNotBlank() || selectedBitmap != null || attachedFile != null) ElectricCyan else ObsidianSurfaceVariant)
+                        .testTag("send_button")
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Send Message",
-                        tint = if (inputText.isNotBlank() || selectedBitmap != null) ObsidianBackground else TextMuted
+                        tint = if (inputText.isNotBlank() || selectedBitmap != null || attachedFile != null) ObsidianBackground else TextMuted,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -593,209 +637,85 @@ fun ChatScreen(
 fun MessageBubble(message: ChatMessage) {
     val isUser = message.role == "user"
 
-    Column(
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
-        Card(
+        Surface(
             shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isUser) 16.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 16.dp
+                topStart = 14.dp,
+                topEnd = 14.dp,
+                bottomStart = if (isUser) 14.dp else 2.dp,
+                bottomEnd = if (isUser) 2.dp else 14.dp
             ),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isUser) ObsidianSurfaceElevated else ObsidianSurface
-            ),
+            color = if (isUser) ElectricCyan.copy(alpha = 0.20f) else ObsidianSurface,
             border = androidx.compose.foundation.BorderStroke(
-                width = 1.dp,
-                color = if (isUser) VividViolet.copy(alpha = 0.4f) else ObsidianBorder
+                width = 0.8.dp,
+                color = if (isUser) ElectricCyan.copy(alpha = 0.5f) else ObsidianBorder
             ),
-            modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .testTag(if (isUser) "user_message_bubble" else "model_message_bubble")
+            modifier = Modifier.fillMaxWidth(if (isUser) 0.82f else 0.88f)
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                // Header tag
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (isUser) "You" else "NOVA AI",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isUser) VividViolet else ElectricCyan
-                    )
-                    Text(
-                        text = formatTimestamp(message.timestamp),
-                        fontSize = 10.sp,
-                        color = TextMuted
-                    )
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (!isUser) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(text = "⚡ NOVA AI", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = ElectricCyan)
+                        if (message.toolStatus != null) {
+                            StatusBadge(text = message.toolStatus, isSuccess = true)
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Content Text
                 Text(
                     text = message.content,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = TextPrimary
+                    fontSize = 13.sp,
+                    color = TextPrimary,
+                    lineHeight = 18.sp
                 )
-
-                // Tool Execution Block (if tool was invoked by AI)
-                if (message.toolCallName != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    ToolExecutionCard(
-                        toolName = message.toolCallName,
-                        toolArgs = message.toolCallArgs ?: "",
-                        toolResult = message.toolResult ?: "",
-                        toolStatus = message.toolStatus ?: "SUCCESS"
-                    )
-                }
             }
         }
     }
 }
 
 @Composable
-fun ToolExecutionCard(
-    toolName: String,
-    toolArgs: String,
-    toolResult: String,
-    toolStatus: String
-) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = ObsidianSurfaceVariant,
-        border = androidx.compose.foundation.BorderStroke(0.8.dp, ObsidianBorder),
-        modifier = Modifier.fillMaxWidth()
+fun StreamingMessageBubble(streamingText: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = ObsidianSurface,
+            border = androidx.compose.foundation.BorderStroke(1.2.dp, ElectricCyan.copy(alpha = 0.6f)),
+            modifier = Modifier.fillMaxWidth(0.90f)
+        ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(text = "⚡", fontSize = 12.sp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        color = ElectricCyan,
+                        strokeWidth = 2.dp
+                    )
                     Text(
-                        text = "Native Action: $toolName",
-                        fontSize = 12.sp,
+                        text = "⚡ NOVA AI Live Thinking...",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = ElectricCyan
                     )
                 }
-                StatusBadge(
-                    text = toolStatus,
-                    isSuccess = toolStatus == "SUCCESS" || toolStatus == "DISPATCHED"
-                )
-            }
 
-            if (toolResult.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = toolResult,
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-            }
-
-            if (toolArgs.isNotBlank() && toolArgs != "{}") {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Args: $toolArgs",
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = TextMuted
+                    text = if (streamingText.isEmpty()) "Processing tokens..." else streamingText,
+                    fontSize = 13.sp,
+                    color = TextPrimary,
+                    lineHeight = 18.sp
                 )
             }
         }
     }
-}
-
-@Composable
-fun StreamingMessageBubble(text: String) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.Start
-    ) {
-        Card(
-            shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
-            colors = CardDefaults.cardColors(containerColor = ObsidianSurface),
-            border = androidx.compose.foundation.BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.6f)),
-            modifier = Modifier.fillMaxWidth(0.9f)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    PulsingAIOld(isStreaming = true)
-                    Text(
-                        text = "NOVA AI • Reasoning",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = ElectricCyan
-                    )
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "$text ▋",
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = TextPrimary
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun EmptyChatGreeting() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(76.dp)
-                .clip(CircleShape)
-                .background(ObsidianSurfaceElevated)
-                .border(2.dp, ElectricCyan, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = "⚡", fontSize = 38.sp)
-        }
-
-        Text(
-            text = "NOVA AI",
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
-
-        Text(
-            text = "Direct human-to-AI interaction.\nSpeak or type any command naturally — NOVA AI will reason, call native device tools (timers, alarms, calendar, apps, calls, SMS, battery), and execute the task automatically.",
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
-            color = TextSecondary,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 24.dp)
-        )
-    }
-}
-
-private fun formatTimestamp(timestamp: Long): String {
-    val date = java.util.Date(timestamp)
-    val sdf = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault())
-    return sdf.format(date)
 }
