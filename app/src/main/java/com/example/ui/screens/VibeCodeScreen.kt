@@ -5,7 +5,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -32,6 +31,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.History
@@ -44,11 +44,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -59,6 +54,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -69,15 +66,29 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.NovaAssistantViewModel
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianBorder
-import com.example.ui.theme.ObsidianSurface
-import com.example.ui.theme.ObsidianSurfaceVariant
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VividViolet
+import com.example.ui.components.GlassCard
+import com.example.ui.components.PillChip
+import com.example.ui.components.PrimaryPillButton
+import com.example.ui.components.SegmentedPillControl
+import com.example.ui.components.StatusPill
+import com.example.ui.components.StatusPillType
+import com.example.ui.theme.DarkBgStart
+import com.example.ui.theme.DarkGlassCard
+import com.example.ui.theme.DarkGlassCardBorder
+import com.example.ui.theme.DarkTextMuted
+import com.example.ui.theme.DarkTextPrimary
+import com.example.ui.theme.DarkTextSecondary
+import com.example.ui.theme.FintechMicroLabel
+import com.example.ui.theme.FintechSectionTitle
+import com.example.ui.theme.LightGlassCard
+import com.example.ui.theme.LightGlassCardBorder
+import com.example.ui.theme.LightTextMuted
+import com.example.ui.theme.LightTextPrimary
+import com.example.ui.theme.LightTextSecondary
+import com.example.ui.theme.LocalIsDarkTheme
+import com.example.ui.theme.MintAccentGlow
+import com.example.ui.theme.MintGradient
+import com.example.ui.theme.MintPrimary
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -86,6 +97,7 @@ fun VibeCodeScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val isDark = LocalIsDarkTheme.current
     val currentProject by viewModel.currentVibeProject.collectAsStateWithLifecycle()
     val isGenerating by viewModel.isGeneratingVibeCode.collectAsStateWithLifecycle()
     val streamText by viewModel.vibeCodeStreamText.collectAsStateWithLifecycle()
@@ -97,37 +109,46 @@ fun VibeCodeScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(ObsidianBackground)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .background(Color.Transparent)
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Top Toolbar
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = ObsidianSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianBorder),
-            modifier = Modifier.fillMaxWidth()
+        // Top Toolbar Card
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            isGlowActive = true,
+            borderTint = MintPrimary
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(36.dp)
+                            .shadow(8.dp, CircleShape, spotColor = MintAccentGlow)
                             .clip(CircleShape)
-                            .background(ElectricCyan.copy(alpha = 0.2f)),
+                            .background(MintGradient),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(imageVector = Icons.Default.SmartToy, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(18.dp))
+                        Icon(imageVector = Icons.Default.SmartToy, contentDescription = null, tint = DarkBgStart, modifier = Modifier.size(20.dp))
                     }
                     Column {
-                        Text(text = "Vibe Coding Canvas", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text(text = currentProject.prompt.take(30) + if (currentProject.prompt.length > 30) "..." else "", fontSize = 11.sp, color = TextSecondary)
+                        Text(
+                            text = "Vibe Code Engine",
+                            style = FintechSectionTitle,
+                            color = if (isDark) DarkTextPrimary else LightTextPrimary
+                        )
+                        Text(
+                            text = currentProject.prompt.take(28) + if (currentProject.prompt.length > 28) "..." else "",
+                            fontSize = 11.sp,
+                            color = if (isDark) DarkTextSecondary else LightTextSecondary
+                        )
                     }
                 }
 
@@ -135,7 +156,7 @@ fun VibeCodeScreen(
                     // Undo button
                     if (currentProject.versionHistory.isNotEmpty()) {
                         IconButton(onClick = { viewModel.undoVibeProject() }) {
-                            Icon(imageVector = Icons.Default.History, contentDescription = "Undo", tint = VividViolet, modifier = Modifier.size(20.dp))
+                            Icon(imageVector = Icons.Default.History, contentDescription = "Undo", tint = MintPrimary, modifier = Modifier.size(19.dp))
                         }
                     }
 
@@ -145,7 +166,7 @@ fun VibeCodeScreen(
                         clipboard.setPrimaryClip(ClipData.newPlainText("VibeCode HTML", currentProject.htmlCode))
                         Toast.makeText(context, "Code copied to clipboard!", Toast.LENGTH_SHORT).show()
                     }) {
-                        Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy Code", tint = ElectricCyan, modifier = Modifier.size(20.dp))
+                        Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy Code", tint = MintPrimary, modifier = Modifier.size(19.dp))
                     }
 
                     // Share/Export HTML
@@ -157,62 +178,35 @@ fun VibeCodeScreen(
                         }
                         context.startActivity(Intent.createChooser(sendIntent, "Export Vibe App"))
                     }) {
-                        Icon(imageVector = Icons.Default.Share, contentDescription = "Share", tint = Color(0xFFF28C52), modifier = Modifier.size(20.dp))
+                        Icon(imageVector = Icons.Default.Share, contentDescription = "Share", tint = MintPrimary, modifier = Modifier.size(19.dp))
                     }
 
                     // Reload WebView
                     IconButton(onClick = {
                         webViewRef?.loadDataWithBaseURL(null, currentProject.htmlCode, "text/html", "UTF-8", null)
                     }) {
-                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh", tint = TextMuted, modifier = Modifier.size(20.dp))
+                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh", tint = if (isDark) DarkTextMuted else LightTextMuted, modifier = Modifier.size(19.dp))
                     }
                 }
             }
         }
 
-        // Tabs: Preview | Code
-        TabRow(
-            selectedTabIndex = selectedTabIndex,
-            containerColor = ObsidianSurface,
-            contentColor = ElectricCyan,
-            indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                    color = ElectricCyan
-                )
-            },
-            modifier = Modifier.clip(RoundedCornerShape(8.dp))
-        ) {
-            Tab(
-                selected = selectedTabIndex == 0,
-                onClick = { selectedTabIndex = 0 },
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Text(text = "Live Sandbox Preview", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            )
-            Tab(
-                selected = selectedTabIndex == 1,
-                onClick = { selectedTabIndex = 1 },
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(imageVector = Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Text(text = "HTML / CSS / JS Code", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            )
-        }
+        // Preview | Code Segmented Pill Control
+        SegmentedPillControl(
+            options = listOf("⚡ Live Sandbox Preview", "💻 HTML/CSS/JS Source"),
+            selectedIndex = selectedTabIndex,
+            onSelect = { selectedTabIndex = it }
+        )
 
-        // Main Content Area
+        // Main Sandbox Canvas Area: Framed in a Glass Panel with Hairline Mint Border (24dp radius)
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .border(1.dp, ObsidianBorder, RoundedCornerShape(12.dp))
-                .background(if (selectedTabIndex == 0) Color.White else ObsidianSurfaceVariant)
+                .shadow(16.dp, RoundedCornerShape(24.dp), spotColor = MintAccentGlow)
+                .clip(RoundedCornerShape(24.dp))
+                .background(if (selectedTabIndex == 0) Color.White else (if (isDark) DarkGlassCard else LightGlassCard))
+                .border(1.2.dp, MintPrimary.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
         ) {
             if (selectedTabIndex == 0) {
                 // Sandboxed WebView
@@ -243,50 +237,49 @@ fun VibeCodeScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(12.dp)
+                        .padding(16.dp)
                         .verticalScroll(rememberScrollState())
                         .horizontalScroll(rememberScrollState())
                 ) {
                     Text(
                         text = codeToDisplay,
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        color = ElectricCyan,
-                        lineHeight = 16.sp
+                        fontSize = 12.sp,
+                        color = if (isDark) MintPrimary else Color(0xFF0F5132),
+                        lineHeight = 18.sp
                     )
                 }
             }
 
-            // Generating indicator overlay
+            // Live Generating Overlay
             if (isGenerating) {
-                Surface(
-                    color = Color.Black.copy(alpha = 0.75f),
-                    modifier = Modifier.fillMaxSize()
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.70f)),
+                    contentAlignment = Alignment.Center
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        CircularProgressIndicator(color = ElectricCyan, strokeWidth = 3.dp)
-                        Spacer(modifier = Modifier.height(12.dp))
+                        CircularProgressIndicator(color = MintPrimary, strokeWidth = 3.dp)
                         Text(
-                            text = "⚡ Vibe Coding in progress...",
-                            color = ElectricCyan,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "SYNTHESIZING VIBE APP",
+                            style = FintechMicroLabel,
+                            color = MintPrimary
                         )
                         Text(
-                            text = "Synthesizing self-contained responsive code",
-                            color = TextSecondary,
-                            fontSize = 11.sp
+                            text = "Assembling responsive web components",
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.8f)
                         )
                     }
                 }
             }
         }
 
-        // Quick Preset Suggestions
+        // Horizontal Scrollable Prompt Suggestion Pills
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -294,90 +287,98 @@ fun VibeCodeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             listOf(
-                "Neon Synthwave Timer",
-                "Retro Arcade Snake Game",
-                "Interactive Calculator",
-                "Personal Portfolio Card",
-                "Particle Physics Visualizer"
+                "⚡ Neon Synthwave Timer",
+                "🕹️ Retro Arcade Snake Game",
+                "📈 Fintech Crypto Tracker",
+                "🧮 Glass Calculator",
+                "🌌 Particle Physics Visualizer"
             ).forEach { suggestion ->
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = ObsidianSurface,
-                    border = androidx.compose.foundation.BorderStroke(0.8.dp, ObsidianBorder),
-                    modifier = Modifier.clickable {
+                PillChip(
+                    label = suggestion,
+                    selected = false,
+                    onClick = {
                         promptInput = suggestion
                         viewModel.generateVibeProject(suggestion)
                     }
-                ) {
-                    Text(
-                        text = suggestion,
-                        fontSize = 11.sp,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
-                }
+                )
             }
         }
 
-        // Prompt Input Bar
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = ObsidianSurface,
-            border = androidx.compose.foundation.BorderStroke(1.2.dp, ElectricCyan.copy(alpha = 0.6f)),
-            modifier = Modifier.fillMaxWidth()
+        // Prompt Input Row: Floating Glass Pill with Send Icon
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(CircleShape)
+                .background(if (isDark) DarkGlassCard else LightGlassCard)
+                .border(1.dp, if (isDark) DarkGlassCardBorder else LightGlassCardBorder, CircleShape)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = promptInput,
-                    onValueChange = { promptInput = it },
-                    placeholder = {
-                        Text(
-                            text = if (currentProject.htmlCode.isNotEmpty()) "Describe an edit or new app..." else "Describe a web app or tool...",
-                            fontSize = 12.sp,
-                            color = TextMuted
-                        )
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    ),
-                    maxLines = 3,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = {
-                        if (promptInput.isNotBlank()) {
-                            val text = promptInput
-                            promptInput = ""
-                            viewModel.updateVibeProject(text)
-                        }
-                    })
-                )
-
-                IconButton(
-                    onClick = {
-                        if (promptInput.isNotBlank()) {
-                            val text = promptInput
-                            promptInput = ""
-                            viewModel.updateVibeProject(text)
-                        }
-                    },
-                    enabled = promptInput.isNotBlank() && !isGenerating
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
-                        tint = if (promptInput.isNotBlank() && !isGenerating) ElectricCyan else TextMuted
+            OutlinedTextField(
+                value = promptInput,
+                onValueChange = { promptInput = it },
+                placeholder = {
+                    Text(
+                        text = if (currentProject.htmlCode.isNotEmpty()) "Describe an edit (e.g. make cards emerald)..." else "Describe a web app or tool...",
+                        fontSize = 12.sp,
+                        color = if (isDark) DarkTextMuted else LightTextMuted
                     )
-                }
+                },
+                modifier = Modifier.weight(1f),
+                shape = CircleShape,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedTextColor = if (isDark) DarkTextPrimary else LightTextPrimary,
+                    unfocusedTextColor = if (isDark) DarkTextPrimary else LightTextPrimary,
+                    cursorColor = MintPrimary
+                ),
+                maxLines = 2,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = {
+                    if (promptInput.isNotBlank()) {
+                        val text = promptInput
+                        promptInput = ""
+                        viewModel.updateVibeProject(text)
+                    }
+                })
+            )
+
+            val canSend = promptInput.isNotBlank() && !isGenerating
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .shadow(if (canSend) 8.dp else 0.dp, CircleShape, spotColor = MintAccentGlow)
+                    .clip(CircleShape)
+                    .background(
+                        if (canSend) MintGradient else Brush.linearGradient(
+                            listOf(
+                                if (isDark) Color(0x1AFFFFFF) else Color(0x0F103C2D),
+                                if (isDark) Color(0x1AFFFFFF) else Color(0x0F103C2D)
+                            )
+                        )
+                    )
+                    .clickable(
+                        enabled = canSend,
+                        onClick = {
+                            if (canSend) {
+                                val text = promptInput
+                                promptInput = ""
+                                viewModel.updateVibeProject(text)
+                            }
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "Send",
+                    tint = if (canSend) DarkBgStart else (if (isDark) DarkTextMuted else LightTextMuted),
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }

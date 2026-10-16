@@ -35,14 +35,15 @@ data class AttachedFile(
 }
 
 data class ThemeConfig(
-    val presetId: String = "CYBER",
-    val name: String = "Electric Cyber",
-    val primaryColorHex: String = "#22D3EE",
-    val secondaryColorHex: String = "#7C3AED",
-    val accentColorHex: String = "#00F2FE",
+    val presetId: String = "MINT",
+    val name: String = "Emerald Mint Glass",
+    val primaryColorHex: String = "#34D399",
+    val secondaryColorHex: String = "#10B981",
+    val accentColorHex: String = "#22D3EE",
     val wallpaperUri: String? = null,
     val darkOverlayAlpha: Float = 0.65f,
-    val blurRadiusDp: Float = 8f
+    val blurRadiusDp: Float = 8f,
+    val isLightTheme: Boolean = false
 )
 
 data class ThemeProposal(

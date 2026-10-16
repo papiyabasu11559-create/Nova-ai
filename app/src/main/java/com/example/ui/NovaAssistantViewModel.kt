@@ -70,6 +70,7 @@ class NovaAssistantViewModel(application: Application) : AndroidViewModel(applic
         private const val PREF_THEME_WALLPAPER = "theme_wallpaper_uri"
         private const val PREF_THEME_OVERLAY = "theme_dark_overlay"
         private const val PREF_THEME_BLUR = "theme_blur_radius"
+        private const val PREF_THEME_IS_LIGHT = "theme_is_light"
         private const val PREF_ANTIGRAVITY_CONNECTED = "antigravity_connected"
         private const val PREF_ANTIGRAVITY_EMAIL = "antigravity_email"
         private const val PREF_ANTIGRAVITY_MODEL = "antigravity_model"
@@ -213,10 +214,11 @@ class NovaAssistantViewModel(application: Application) : AndroidViewModel(applic
     // Themes & Wallpaper
     private val _currentTheme = MutableStateFlow(
         ThemeConfig(
-            presetId = prefs.getString(PREF_THEME_PRESET, "CYBER") ?: "CYBER",
+            presetId = prefs.getString(PREF_THEME_PRESET, "MINT") ?: "MINT",
             wallpaperUri = prefs.getString(PREF_THEME_WALLPAPER, null),
             darkOverlayAlpha = prefs.getFloat(PREF_THEME_OVERLAY, 0.65f),
-            blurRadiusDp = prefs.getFloat(PREF_THEME_BLUR, 8f)
+            blurRadiusDp = prefs.getFloat(PREF_THEME_BLUR, 8f),
+            isLightTheme = prefs.getBoolean(PREF_THEME_IS_LIGHT, false)
         )
     )
     val currentTheme: StateFlow<ThemeConfig> = _currentTheme.asStateFlow()
@@ -381,17 +383,23 @@ class NovaAssistantViewModel(application: Application) : AndroidViewModel(applic
             .putString(PREF_THEME_WALLPAPER, config.wallpaperUri)
             .putFloat(PREF_THEME_OVERLAY, config.darkOverlayAlpha)
             .putFloat(PREF_THEME_BLUR, config.blurRadiusDp)
+            .putBoolean(PREF_THEME_IS_LIGHT, config.isLightTheme)
             .apply()
 
         // Also sync bubble accent color
         val bubbleColor = when (config.presetId) {
             "PURPLE" -> "PURPLE"
             "PINK" -> "PINK"
-            "GREEN" -> "GREEN"
+            "GREEN", "MINT" -> "GREEN"
             else -> "CYAN"
         }
         setBubbleTheme(bubbleColor)
         _activeThemeProposal.value = null
+    }
+
+    fun setThemeLightDark(isLight: Boolean) {
+        val updated = _currentTheme.value.copy(isLightTheme = isLight)
+        applyTheme(updated)
     }
 
     fun setCustomWallpaper(uriString: String?) {
@@ -573,6 +581,10 @@ class NovaAssistantViewModel(application: Application) : AndroidViewModel(applic
 
     fun toggleAutoSpeak(enabled: Boolean) {
         _settings.value = _settings.value.copy(autoSpeakResponses = enabled)
+    }
+
+    fun setVoiceSpeed(speed: Float) {
+        _settings.value = _settings.value.copy(voiceSpeed = speed)
     }
 
     fun updatePersonaTone(tone: String) {

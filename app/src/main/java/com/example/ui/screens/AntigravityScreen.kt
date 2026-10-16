@@ -24,33 +24,25 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -61,11 +53,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -75,13 +66,39 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.AntigravityReasoningDepth
 import com.example.ui.NovaAssistantViewModel
-
-val AntigravityDarkBg = Color(0xFF0B0F17)
-val AntigravityCardBg = Color(0xFF151B26)
-val AntigravityOrange = Color(0xFFF28C52)
-val AntigravityBorder = Color(0xFF263346)
-val AntigravityGreen = Color(0xFF10B981)
-val AntigravityTextMuted = Color(0xFF94A3B8)
+import com.example.ui.components.GlassCard
+import com.example.ui.components.MintSwitch
+import com.example.ui.components.PillChip
+import com.example.ui.components.PrimaryPillButton
+import com.example.ui.components.SecondaryPillButton
+import com.example.ui.components.SegmentedPillControl
+import com.example.ui.components.StatusPill
+import com.example.ui.components.StatusPillType
+import com.example.ui.theme.DarkBgEnd
+import com.example.ui.theme.DarkBgStart
+import com.example.ui.theme.DarkGlassCard
+import com.example.ui.theme.DarkGlassCardBorder
+import com.example.ui.theme.DarkTextMuted
+import com.example.ui.theme.DarkTextPrimary
+import com.example.ui.theme.DarkTextSecondary
+import com.example.ui.theme.FintechBody
+import com.example.ui.theme.FintechDestructive
+import com.example.ui.theme.LightBgEnd
+import com.example.ui.theme.LightBgStart
+import com.example.ui.theme.FintechMicroLabel
+import com.example.ui.theme.FintechSectionTitle
+import com.example.ui.theme.FintechSuccess
+import com.example.ui.theme.LightGlassCard
+import com.example.ui.theme.LightGlassCardBorder
+import com.example.ui.theme.LightTextMuted
+import com.example.ui.theme.LightTextPrimary
+import com.example.ui.theme.LightTextSecondary
+import com.example.ui.theme.LocalIsDarkTheme
+import com.example.ui.theme.MintAccentGlow
+import com.example.ui.theme.MintGradient
+import com.example.ui.theme.MintPrimary
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,6 +107,7 @@ fun AntigravityScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val isDark = LocalIsDarkTheme.current
     val antigravityState by viewModel.antigravityState.collectAsStateWithLifecycle()
 
     val coroutineScope = rememberCoroutineScope()
@@ -97,7 +115,7 @@ fun AntigravityScreen(
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showModelBottomSheet by remember { mutableStateOf(false) }
     var isCheckingUpdates by remember { mutableStateOf(false) }
-    var updateStatusText by remember { mutableStateOf("v2.4.0 (Latest Antigravity agent)") }
+    var updateStatusText by remember { mutableStateOf("v2.4.2 (Latest agent)") }
 
     // Auto-detect code in clipboard on entry
     LaunchedEffect(Unit) {
@@ -128,458 +146,355 @@ fun AntigravityScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AntigravityDarkBg)
+            .background(Color.Transparent)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Top row: screen title + status pill (live Online/Offline)
-        Row(
+        // Top Hero Card with Status Pill (Active Mint / Offline Grey)
+        GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Google Antigravity",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = "Managed Agent & Cloud Workspace",
-                    fontSize = 12.sp,
-                    color = AntigravityTextMuted
-                )
-            }
-
-            // Status Pill (Live Green dot "Online" / Red "Offline")
-            Surface(
-                shape = CircleShape,
-                color = if (antigravityState.isConnected) AntigravityGreen.copy(alpha = 0.15f) else Color.Red.copy(alpha = 0.15f),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (antigravityState.isConnected) AntigravityGreen.copy(alpha = 0.5f) else Color.Red.copy(alpha = 0.5f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(if (antigravityState.isConnected) AntigravityGreen else Color.Red)
-                    )
-                    Text(
-                        text = if (antigravityState.isConnected) "Online" else "Offline",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (antigravityState.isConnected) AntigravityGreen else Color(0xFFEF4444)
-                    )
-                }
-            }
-        }
-
-        // 2. "Antigravity" chip/tab (selected state, orange border)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = AntigravityCardBg,
-                border = androidx.compose.foundation.BorderStroke(1.2.dp, AntigravityOrange)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.SmartToy, contentDescription = null, tint = AntigravityOrange, modifier = Modifier.size(16.dp))
-                    Text(text = "Antigravity Active", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AntigravityOrange)
-                }
-            }
-        }
-
-        // 3. Card "Google account"
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = AntigravityCardBg),
-            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityBorder),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                if (antigravityState.isConnected) {
-                    // Connected State
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(42.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(AntigravityGreen.copy(alpha = 0.2f))
-                                    .border(1.dp, AntigravityGreen, RoundedCornerShape(10.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = "G", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = AntigravityGreen)
-                            }
-                            Column {
-                                Text(text = antigravityState.userEmail, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                Text(text = "Connected with Google", fontSize = 11.sp, color = AntigravityGreen, fontWeight = FontWeight.Medium)
-                            }
-                        }
-
-                        TextButton(onClick = { showDisconnectDialog = true }) {
-                            Text(text = "Disconnect", fontSize = 13.sp, color = Color(0xFFEF4444), fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                } else {
-                    // Signed-out State
-                    Text(text = "Google Account Authentication", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text(
-                        text = "Sign in to access your private Antigravity Linux workspace, higher reasoning budgets, and cloud agents.",
-                        fontSize = 12.sp,
-                        color = AntigravityTextMuted
-                    )
-
-                    Button(
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://antigravity.google/docs/install/#authenticate")).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            try {
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                // Fallback
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = AntigravityOrange),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(imageVector = Icons.Default.OpenInNew, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Sign in with Antigravity", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                    }
-
-                    // Code entry field
-                    OutlinedTextField(
-                        value = codeInput,
-                        onValueChange = { codeInput = it },
-                        placeholder = { Text("Paste authentication code here...", fontSize = 12.sp, color = AntigravityTextMuted) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = AntigravityDarkBg,
-                            unfocusedContainerColor = AntigravityDarkBg,
-                            focusedBorderColor = AntigravityOrange,
-                            unfocusedBorderColor = AntigravityBorder,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        trailingIcon = {
-                            IconButton(onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clipData = clipboard.primaryClip
-                                if (clipData != null && clipData.itemCount > 0) {
-                                    val text = clipData.getItemAt(0).text?.toString() ?: ""
-                                    if (text.isNotBlank()) codeInput = text.trim()
-                                }
-                            }) {
-                                Icon(imageVector = Icons.Default.ContentPaste, contentDescription = "Paste", tint = AntigravityOrange, modifier = Modifier.size(18.dp))
-                            }
-                        },
-                        singleLine = true
-                    )
-
-                    Button(
-                        onClick = { viewModel.connectAntigravityWithCode(codeInput) },
-                        enabled = codeInput.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = "Verify & Connect Agent", fontSize = 13.sp, color = AntigravityOrange, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        // 4. Section "Active Intelligence Model" + "Sync"
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = AntigravityCardBg),
-            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityBorder),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Active Intelligence Model", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    TextButton(onClick = { viewModel.testAntigravityConnection() }) {
-                        Icon(imageVector = Icons.Default.Sync, contentDescription = null, tint = AntigravityOrange, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "Sync", fontSize = 12.sp, color = AntigravityOrange, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                // Dropdown Card: icon, display name, ID in monospace, chevron
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = AntigravityDarkBg,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityBorder),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showModelBottomSheet = true }
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(AntigravityOrange.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(imageVector = Icons.Default.SmartToy, contentDescription = null, tint = AntigravityOrange, modifier = Modifier.size(18.dp))
-                            }
-                            Column {
-                                val currentModelPair = availableModelsList.firstOrNull { it.first == antigravityState.selectedModel }
-                                Text(
-                                    text = currentModelPair?.second ?: antigravityState.selectedModel,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = antigravityState.selectedModel,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = AntigravityTextMuted
-                                )
-                            }
-                        }
-
-                        Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Select", tint = AntigravityOrange)
-                    }
-                }
-            }
-        }
-
-        // 5. Section "Reasoning Depth" + live label
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = AntigravityCardBg),
-            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityBorder),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Reasoning Depth", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    val depthLabel = when (antigravityState.reasoningDepth) {
-                        AntigravityReasoningDepth.LOW -> "Zero latency (0 tokens)"
-                        AntigravityReasoningDepth.MEDIUM -> "Balanced reasoning (2,048 tokens)"
-                        AntigravityReasoningDepth.HIGH -> "Maximum reasoning depth (8,192 tokens)"
-                    }
-                    Text(text = depthLabel, fontSize = 11.sp, color = AntigravityOrange, fontWeight = FontWeight.Medium)
-                }
-
-                // 3-way Segmented Control: Low | Medium | High (selected = orange fill, dark text)
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = AntigravityDarkBg,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(modifier = Modifier.padding(4.dp)) {
-                        AntigravityReasoningDepth.values().forEach { depth ->
-                            val isSelected = antigravityState.reasoningDepth == depth
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) AntigravityOrange else Color.Transparent)
-                                    .clickable { viewModel.setAntigravityReasoningDepth(depth) }
-                                    .padding(vertical = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = depth.displayName,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.Black else AntigravityTextMuted
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 6. "Test connection" outlined orange button
-        OutlinedButton(
-            onClick = { viewModel.testAntigravityConnection() },
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = AntigravityOrange),
-            border = androidx.compose.foundation.BorderStroke(1.2.dp, AntigravityOrange),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (antigravityState.isTestingConnection) {
-                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = AntigravityOrange, strokeWidth = 2.dp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Testing Connection...", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            } else {
-                Icon(imageVector = Icons.Default.Refresh, contentDescription = null, tint = AntigravityOrange, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Test Connection", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        if (antigravityState.testResult != null) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = if (antigravityState.isSuccess) AntigravityGreen.copy(alpha = 0.15f) else Color(0xFFEF4444).copy(alpha = 0.15f),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (antigravityState.isSuccess) AntigravityGreen else Color(0xFFEF4444)
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(
-                        imageVector = if (antigravityState.isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
-                        contentDescription = null,
-                        tint = if (antigravityState.isSuccess) AntigravityGreen else Color(0xFFEF4444),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(text = antigravityState.testResult!!, fontSize = 12.sp, color = Color.White)
-                }
-            }
-        }
-
-        // 7. Caption: "Automatic tool approval · Runs inside the private Linux workspace"
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = AntigravityCardBg),
-            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityBorder),
-            modifier = Modifier.fillMaxWidth()
+            isGlowActive = true,
+            borderTint = MintPrimary
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Automatic Tool Approval", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text(
-                        text = "Runs inside the private Linux workspace",
-                        fontSize = 11.sp,
-                        color = AntigravityTextMuted
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .shadow(8.dp, CircleShape, spotColor = MintAccentGlow)
+                            .clip(CircleShape)
+                            .background(MintGradient),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(imageVector = Icons.Default.SmartToy, contentDescription = null, tint = DarkBgStart, modifier = Modifier.size(20.dp))
+                    }
+                    Column {
+                        Text(
+                            text = "Google Antigravity",
+                            style = FintechSectionTitle,
+                            color = if (isDark) DarkTextPrimary else LightTextPrimary
+                        )
+                        Text(
+                            text = "CLOUD AGENT WORKSPACE",
+                            style = FintechMicroLabel,
+                            color = MintPrimary
+                        )
+                    }
                 }
-                Switch(
-                    checked = antigravityState.autoToolApproval,
-                    onCheckedChange = { viewModel.toggleAntigravityAutoApproval(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = AntigravityOrange,
-                        checkedTrackColor = AntigravityOrange.copy(alpha = 0.4f)
-                    )
+
+                StatusPill(
+                    text = if (antigravityState.isConnected) "ACTIVE" else "OFFLINE",
+                    type = if (antigravityState.isConnected) StatusPillType.SUCCESS else StatusPillType.OFFLINE
                 )
             }
         }
 
-        // 8. Card "Runtime updates"
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = AntigravityCardBg),
-            border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityBorder),
-            modifier = Modifier.fillMaxWidth()
+        // Section 1: Google Account Glass Card
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            if (antigravityState.isConnected) {
+                // Connected state
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MintPrimary.copy(alpha = 0.2f))
+                                .border(1.dp, MintPrimary, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "G", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MintPrimary)
+                        }
+                        Column {
+                            Text(
+                                text = antigravityState.userEmail,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark) DarkTextPrimary else LightTextPrimary
+                            )
+                            Text(
+                                text = "Authenticated with Google",
+                                fontSize = 11.sp,
+                                color = MintPrimary
+                            )
+                        }
+                    }
+
+                    TextButton(onClick = { showDisconnectDialog = true }) {
+                        Text(text = "Disconnect", fontSize = 12.sp, color = FintechDestructive, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            } else {
+                // Signed-out state
+                Text(
+                    text = "GOOGLE WORKSPACE AUTHENTICATION",
+                    style = FintechMicroLabel,
+                    color = if (isDark) DarkTextMuted else LightTextMuted
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Sign in to access your private Antigravity Linux workspace, higher reasoning budgets, and cloud agents.",
+                    style = FintechBody,
+                    color = if (isDark) DarkTextSecondary else LightTextSecondary
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Primary Mint Gradient Pill Button
+                PrimaryPillButton(
+                    text = "Sign in with Antigravity",
+                    icon = Icons.AutoMirrored.Filled.OpenInNew,
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://antigravity.google/docs/install/#authenticate")).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        try {
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            // Ignored
+                        }
+                    },
+                    height = 50.dp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Code Input Field
+                OutlinedTextField(
+                    value = codeInput,
+                    onValueChange = { codeInput = it },
+                    placeholder = {
+                        Text("Paste auth code here...", fontSize = 12.sp, color = if (isDark) DarkTextMuted else LightTextMuted)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = CircleShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = if (isDark) DarkGlassCard else LightGlassCard,
+                        unfocusedContainerColor = if (isDark) DarkGlassCard else LightGlassCard,
+                        focusedBorderColor = MintPrimary,
+                        unfocusedBorderColor = if (isDark) DarkGlassCardBorder else LightGlassCardBorder,
+                        focusedTextColor = if (isDark) DarkTextPrimary else LightTextPrimary,
+                        unfocusedTextColor = if (isDark) DarkTextPrimary else LightTextPrimary,
+                        cursorColor = MintPrimary
+                    ),
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clipData = clipboard.primaryClip
+                            if (clipData != null && clipData.itemCount > 0) {
+                                val text = clipData.getItemAt(0).text?.toString() ?: ""
+                                if (text.isNotBlank()) codeInput = text.trim()
+                            }
+                        }) {
+                            Icon(imageVector = Icons.Default.ContentPaste, contentDescription = "Paste", tint = MintPrimary, modifier = Modifier.size(18.dp))
+                        }
+                    },
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                SecondaryPillButton(
+                    text = "Verify & Connect Agent",
+                    onClick = { viewModel.connectAntigravityWithCode(codeInput) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        // Section 2: Model Dropdown Glass Tile with Chevron
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { showModelBottomSheet = true }
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(text = "Runtime Updates", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text(text = updateStatusText, fontSize = 11.sp, color = AntigravityTextMuted)
+                    Text(
+                        text = "ACTIVE INTELLIGENCE MODEL",
+                        style = FintechMicroLabel,
+                        color = if (isDark) DarkTextMuted else LightTextMuted
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = availableModelsList.find { it.first == antigravityState.selectedModel }?.second ?: antigravityState.selectedModel,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDark) DarkTextPrimary else LightTextPrimary
+                    )
                 }
 
-                Button(
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Select Model",
+                    tint = MintPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        // Section 3: Reasoning Depth Segmented Control (Low / Medium / High)
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "REASONING BUDGET DEPTH",
+                style = FintechMicroLabel,
+                color = if (isDark) DarkTextMuted else LightTextMuted
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            val depthLabel = when (antigravityState.reasoningDepth) {
+                AntigravityReasoningDepth.LOW -> "Instant execution (0 tokens)"
+                AntigravityReasoningDepth.MEDIUM -> "Balanced reasoning (2,048 tokens)"
+                AntigravityReasoningDepth.HIGH -> "Maximum reasoning depth (8,192 tokens)"
+            }
+            Text(text = depthLabel, style = FintechBody, color = MintPrimary)
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            val depths = listOf("Low", "Medium", "High")
+            val currentIdx = when (antigravityState.reasoningDepth) {
+                AntigravityReasoningDepth.LOW -> 0
+                AntigravityReasoningDepth.MEDIUM -> 1
+                AntigravityReasoningDepth.HIGH -> 2
+            }
+
+            SegmentedPillControl(
+                options = depths,
+                selectedIndex = currentIdx,
+                onSelect = { idx ->
+                    val chosen = when (idx) {
+                        0 -> AntigravityReasoningDepth.LOW
+                        1 -> AntigravityReasoningDepth.MEDIUM
+                        else -> AntigravityReasoningDepth.HIGH
+                    }
+                    viewModel.setAntigravityReasoningDepth(chosen)
+                }
+            )
+        }
+
+        // Section 4: Secondary Glass Button for "Test Connection"
+        SecondaryPillButton(
+            text = if (antigravityState.isTestingConnection) "Testing Connection..." else "Test Antigravity Connection",
+            icon = Icons.Default.Sync,
+            onClick = { viewModel.testAntigravityConnection() },
+            modifier = Modifier.fillMaxWidth(),
+            height = 50.dp
+        )
+
+        // Test result chip if available
+        if (antigravityState.testResult != null) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                borderTint = if (antigravityState.isSuccess) MintPrimary else FintechDestructive
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    StatusPill(
+                        text = if (antigravityState.isSuccess) "CONNECTED" else "ERROR",
+                        type = if (antigravityState.isSuccess) StatusPillType.SUCCESS else StatusPillType.ERROR
+                    )
+                    Text(
+                        text = antigravityState.testResult!!,
+                        fontSize = 12.sp,
+                        color = if (isDark) DarkTextPrimary else LightTextPrimary
+                    )
+                }
+            }
+        }
+
+        // Section 5: Automatic Tool Approval Switch
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Automatic Tool Approval",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDark) DarkTextPrimary else LightTextPrimary
+                    )
+                    Text(
+                        text = "Executes within isolated Linux container",
+                        fontSize = 11.sp,
+                        color = if (isDark) DarkTextSecondary else LightTextSecondary
+                    )
+                }
+                MintSwitch(
+                    checked = antigravityState.autoToolApproval,
+                    onCheckedChange = { viewModel.toggleAntigravityAutoApproval(it) }
+                )
+            }
+        }
+
+        // Section 6: Runtime Updates Row
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Runtime Updates",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDark) DarkTextPrimary else LightTextPrimary
+                    )
+                    Text(
+                        text = updateStatusText,
+                        fontSize = 11.sp,
+                        color = if (isDark) DarkTextSecondary else LightTextSecondary
+                    )
+                }
+
+                SecondaryPillButton(
+                    text = if (isCheckingUpdates) "Checking..." else "Check Updates",
+                    icon = Icons.Default.Refresh,
                     onClick = {
                         isCheckingUpdates = true
-                        updateStatusText = "Checking Antigravity registry..."
+                        updateStatusText = "Querying Antigravity registry..."
                         coroutineScope.launch {
                             delay(1200)
                             isCheckingUpdates = false
                             updateStatusText = "v2.4.2 (Up to date)"
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AntigravityDarkBg),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AntigravityBorder),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    if (isCheckingUpdates) {
-                        CircularProgressIndicator(modifier = Modifier.size(14.dp), color = AntigravityOrange, strokeWidth = 2.dp)
-                    } else {
-                        Text(text = "Check Updates", fontSize = 12.sp, color = AntigravityOrange, fontWeight = FontWeight.SemiBold)
-                    }
-                }
+                    height = 38.dp
+                )
             }
         }
 
-        // 9. Footer Text
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(imageVector = Icons.Default.Security, contentDescription = null, tint = AntigravityTextMuted, modifier = Modifier.size(16.dp))
-            Text(
-                text = "API keys encrypted in Android secure storage · Terminal is accessible from any project",
-                fontSize = 11.sp,
-                color = AntigravityTextMuted
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(40.dp))
     }
 
     // Model selection bottom sheet
     if (showModelBottomSheet) {
         ModalBottomSheet(
             onDismissRequest = { showModelBottomSheet = false },
-            sheetState = rememberModalBottomSheetState(),
-            containerColor = AntigravityCardBg
+            containerColor = if (isDark) DarkBgEnd else LightBgEnd,
+            sheetState = rememberModalBottomSheetState()
         ) {
             Column(
                 modifier = Modifier
@@ -587,39 +502,36 @@ fun AntigravityScreen(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(text = "Select Antigravity Intelligence Model", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                HorizontalDivider(color = AntigravityBorder)
+                Text(
+                    text = "SELECT REASONING MODEL",
+                    style = FintechMicroLabel,
+                    color = MintPrimary
+                )
 
-                availableModelsList.forEach { (modelId, displayName) ->
+                availableModelsList.forEach { (modelId, modelName) ->
                     val isSelected = antigravityState.selectedModel == modelId
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) AntigravityDarkBg else Color.Transparent,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isSelected) AntigravityOrange else Color.Transparent
-                        ),
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (isSelected) MintPrimary.copy(alpha = 0.15f) else Color.Transparent)
+                            .border(1.dp, if (isSelected) MintPrimary else Color.Transparent, RoundedCornerShape(14.dp))
                             .clickable {
                                 viewModel.setAntigravityModel(modelId)
                                 showModelBottomSheet = false
                             }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(text = displayName, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                                Text(text = modelId, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = AntigravityTextMuted)
-                            }
-                            if (isSelected) {
-                                Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = AntigravityOrange)
-                            }
+                        Text(
+                            text = modelName,
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isDark) DarkTextPrimary else LightTextPrimary
+                        )
+                        if (isSelected) {
+                            Icon(Icons.Default.Check, contentDescription = null, tint = MintPrimary, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -628,26 +540,27 @@ fun AntigravityScreen(
         }
     }
 
-    // Disconnect Dialog
+    // Disconnect confirmation dialog
     if (showDisconnectDialog) {
         AlertDialog(
             onDismissRequest = { showDisconnectDialog = false },
-            title = { Text("Disconnect Antigravity?") },
-            text = { Text("Your local session and stored workspace tokens will be wiped. You can sign in again at any time.") },
+            title = { Text(text = "Disconnect Antigravity?", fontWeight = FontWeight.Bold) },
+            text = { Text(text = "Disconnecting will terminate your active cloud agent and reset your reasoning session tokens.") },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.disconnectAntigravity()
                     showDisconnectDialog = false
                 }) {
-                    Text("Disconnect", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                    Text(text = "Disconnect", color = FintechDestructive, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDisconnectDialog = false }) {
-                    Text("Cancel", color = Color.White)
+                    Text(text = "Cancel", color = MintPrimary)
                 }
             },
-            containerColor = AntigravityCardBg
+            containerColor = if (isDark) DarkBgEnd else LightBgEnd,
+            shape = RoundedCornerShape(20.dp)
         )
     }
 }
